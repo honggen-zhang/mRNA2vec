@@ -14,7 +14,7 @@ torchrun --nproc_per_node=4 pretrain_mrna2vec.py
 
 ## Downstream task
 Using the checkpoint from the pre-training as the encode, we finetune the model on different downstream tasks.
-For example, for the HEK dataset Translation Efficiency problem, the task_name = "HEK_TE"
+For example, for the HEK dataset Translation Efficiency problem, the task_name = "HEK_TE". Download from https://drive.google.com/drive/folders/1zTUZ9qGdjJJqdmjjzdZlmBUU8FgpTLtb?usp=sharing
 ```bash
 python sft_exp.py --task_name "HEK_TE" --exp_name "d2v" --data_path "data1" --model_name "model_d2v_mfe0.1_ss0.001_specific.pt" --load_model True --cuda_device "3"
 ```
