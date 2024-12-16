@@ -55,9 +55,9 @@ def main():
     task_name = args.task_name
     data_path = args.data_path
     model_name = args.model_name
-    DATA_PATH = f'/home//honggen.zhang/CodonBERT-master/benchmarks/CodonBERT/data/{task_name}/{data_path}.csv'
-    MODEL_PATH = f'/home/honggen.zhang/data2vec-pytorch/models/{model_name}'
-    TOKENIZER_PATH = '/home/honggen.zhang/CodonBERT-master/benchmarks/CodonBERT/T5_file/tokenizer/'
+    DATA_PATH = f'./data/{task_name}/{data_path}.csv'
+    MODEL_PATH = f'./models/{model_name}'
+    TOKENIZER_PATH = './tokenizer/'
     BATCH_SIZE = 128
     EPOCHS = 100
     LEARNING_RATE = 1e-3
