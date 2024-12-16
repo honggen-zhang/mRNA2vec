@@ -25,10 +25,10 @@ class mRNA2vec(nn.Module):
                                  nn.GELU(),
                                  nn.Linear(200, 1),)
         self.clf_ss = self._build_ss_head()
+        self.ema_decay =  0.999
+        self.ema_end_decay = 0.9999
+        self.ema_anneal_end_step = 300000
 
-        #self.ema_decay = self.cfg.model.ema_decay
-        #self.ema_end_decay = self.cfg.model.ema_end_decay
-        #self.ema_anneal_end_step = self.cfg.model.ema_anneal_end_step
 
     def _build_ss_head(self):
         return nn.Sequential(nn.Linear(self.embed_dim, self.embed_dim * 2),
