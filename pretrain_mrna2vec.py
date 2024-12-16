@@ -47,7 +47,7 @@ if __name__ == '__main__':
     )
     print('loading encoder........')
 
-    #ckpt = torch.load('/home/honggen.zhang/data2vec-pytorch/models/model_mfe_mse.pt', map_location='cpu')
+    #ckpt = torch.load('./model_mfe_mse.pt', map_location='cpu')
     #encoder_state_dict = {k[8:]: v for k, v in ckpt['encoder'].items() if k.startswith('encoder.')}
     #encoder.load_state_dict(ckpt['encoder'], strict=True)
 
