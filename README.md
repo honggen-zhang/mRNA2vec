@@ -1,6 +1,4 @@
 # mRNA2vec
-code for mRNA2vec paper
-# mRNA2vec
 This is the code for the AAAI25 paper [mRNA2vec](https://arxiv.org/pdf/2408.09048)
 ![Alt text](./diagram_mRNA2vec.png)
 
@@ -18,7 +16,7 @@ torchrun --nproc_per_node=4 pretrain_mrna2vec.py
 ## Downstream task
 Using the checkpoint from the pre-training as the encode, we finetune the model on different downstream tasks.
 
-You can also download our checkpoint pre-trained on 510K sequences.
+You can also download our [checkpoint](./checkpoint/model_d2v_mfe0.01_ss0.001_warmup.pt) pre-trained on 510K sequences.
 
 For example, for the HEK dataset Translation Efficiency problem, the task_name = "HEK_TE". All downstream task data can be [downloaded](https://drive.google.com/drive/folders/1zTUZ9qGdjJJqdmjjzdZlmBUU8FgpTLtb?usp=sharing)
 ```bash
