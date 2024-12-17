@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from EMA import EMA
 import torch.optim as optim
 import transformers
+from typing import Callable, Optional, Union, Tuple, List
 from transformers import T5EncoderModel, T5Config
 
 class mRNA2vec(nn.Module):
@@ -25,10 +26,10 @@ class mRNA2vec(nn.Module):
                                  nn.GELU(),
                                  nn.Linear(200, 1),)
         self.clf_ss = self._build_ss_head()
-        self.ema_decay =  0.999
-        self.ema_end_decay = 0.9999
-        self.ema_anneal_end_step = 300000
 
+        #self.ema_decay = self.cfg.model.ema_decay
+        #self.ema_end_decay = self.cfg.model.ema_end_decay
+        #self.ema_anneal_end_step = self.cfg.model.ema_anneal_end_step
 
     def _build_ss_head(self):
         return nn.Sequential(nn.Linear(self.embed_dim, self.embed_dim * 2),
@@ -66,8 +67,7 @@ class mRNA2vec(nn.Module):
             y = y[-3:]  # take the last k transformer layers
             y = [F.layer_norm(tl.float(), tl.shape[-1:]) for tl in y]
             y = sum(y) / len(y)
-            if self.cfg.model.normalize_targets:
-                y = F.layer_norm(y.float(), y.shape[-1:])
+            y = F.layer_norm(y.float(), y.shape[-1:])
 
 
         e = self._clf(x.mean(dim =1))
@@ -99,7 +99,7 @@ class T5_encoder(nn.Module):
         model_cofig.num_layers = num_hidden_layers
         model_cofig.d_ff = hidden_size * 4
         model_cofig.vocab_size = vocab_size
-        self.encoder = T5EncoderModel(config=model_cofig1)
+        self.encoder = T5EncoderModel(config=model_cofig)
 
     def forward(self, x, attention_mask):
         outputs = self.encoder(x,
@@ -206,7 +206,7 @@ class ConvNeXtBlock1D(nn.Module):
         x = self.drop_path(x) + shortcut
         return x
 
-class Regression_Model(T5_encoder):
+class Regression_Model(nn.Module):
     def __init__(self,
                  vocab_size=69,
                  hidden_size=512,
@@ -215,50 +215,45 @@ class Regression_Model(T5_encoder):
                  pad_token_id=1
                  ):
         super().__init__()
-
-        self.conv1 = ConvNeXtBlock1D(hidden_size, hidden_size//2, stride=1)
-        self.conv1_1 = ConvNeXtBlock1D(hidden_size//2, hidden_size//2, stride=2)
-        self.conv2 = ConvNeXtBlock1D(hidden_size//2, hidden_size//4, stride=1)
-        self.conv2_1 = ConvNeXtBlock1D(hidden_size//4, hidden_size//4, stride=1)
-        self.conv2_2 = ConvNeXtBlock1D(hidden_size//4, hidden_size//4, stride=1)
-        self.conv3 = ConvNeXtBlock1D(hidden_size//4, hidden_size//4, stride=2)
+        self.T5_encoder = T5_encoder(hidden_size=hidden_size,
+                                  num_attention_heads = num_attention_heads,
+                                  num_hidden_layers= num_hidden_layers,)
         self.proj1 = nn.Linear(hidden_size, hidden_size // 32)
-        self.proj2 = nn.Linear(32 * hidden_size // 32, 128)
-        #self.cls = nn.Linear(128, 1)
 
-        self.cls = nn.Sequential(nn.Linear(512, 1),
+        self.proj2 = nn.Linear(32 * hidden_size // 32, 128)
+        self.conv_blocks = nn.Sequential(
+            ConvNeXtBlock1D(hidden_size, hidden_size // 2, stride=1),
+            ConvNeXtBlock1D(hidden_size // 2, hidden_size // 2, stride=2),
+            ConvNeXtBlock1D(hidden_size // 2, hidden_size // 4, stride=1),
+            ConvNeXtBlock1D(hidden_size // 4, hidden_size // 4, stride=1),
+            ConvNeXtBlock1D(hidden_size // 4, hidden_size // 4, stride=1),
+            ConvNeXtBlock1D(hidden_size // 4, hidden_size // 4, stride=2)
+        )
+
+        self.cls = nn.Sequential(nn.Linear(hidden_size, 1),
                                  #nn.GELU(),
                                  #nn.Linear(200, 1),
                                  )
         self.loss_fn = nn.MSELoss()
         #self.loss_fn = nn.CrossEntropyLoss()
-    def forward_logit1(self, x, mask):
+    def forward_logit_linear(self, x, mask):
         #with torch.no_grad():
-        x = self.encoder(x,attention_mask=mask,output_hidden_states = True,return_dict=True,)
+        x = self.T5_encoder.encoder(x,attention_mask=mask,output_hidden_states = True,return_dict=True,)
         x = x.hidden_states[-2].mean(dim =1)  # take the last k transformer layers
-
-        
-        #x = self.proj1(x)
         x = x.reshape(x.size(0), -1)
         x = self.cls(x)
         return x
-    def forward_logit(self, x, mask):
-        #with torch.no_grad():
-        x = self.encoder(x,attention_mask=mask,output_hidden_states = True,return_dict=True,)
+    def forward_logit_cov(self, x, mask):
+        x = self.T5_encoder.encoder(x,attention_mask=mask,output_hidden_states = True,return_dict=True,)
         x = x.hidden_states[-2]#[:,:12,:]
         x = x.permute(0,2,1)
-        x = self.conv1(x)
-        x = self.conv1_1(x)
-        x = self.conv2(x)
-        x = self.conv2_1(x)
-        x = self.conv2_2(x)
-        x = self.conv3(x)
+        x = self.conv_blocks(x)
         x = x.reshape(x.size(0), -1)
         x = self.cls(x)
         return x
 
     def forward(self, x,mask,label):
-        x = self.forward_logit(x,
+        x = self.forward_logit_linear(x,
                           mask,
                           )
 
