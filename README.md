@@ -1,7 +1,7 @@
 # mRNA2vec
 code for mRNA2vec paper
 # mRNA2vec
-This is the code for the AAAI25 paper [mRNA2vec] (https://arxiv.org/pdf/2408.09048)
+This is the code for the AAAI25 paper [mRNA2vec](https://arxiv.org/pdf/2408.09048)
 ![Alt text](./diagram_mRNA2vec.png)
 
 ## Pre-training stage 
