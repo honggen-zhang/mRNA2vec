@@ -1,16 +1,19 @@
-from torch.utils.data import DataLoader
 import transformers
 from transformers import DebertaTokenizerFast, T5EncoderModel, T5Config
 from typing import Callable, Optional, Union, Tuple, List
 from torch.utils import data
-
+import pickle
+import torch
+import numpy as np
+import random
+import pandas as pd
 def pkl_load(one_path):
     with open(one_path, 'rb') as f:
         return pickle.load(f)
     
 class DataLoad(data.Dataset):
-    def __init__(self, data_path='/home/honggen.zhang/CodonBERT-master/benchmarks/CodonBERT/T5_file/data_mfe_ss_510k.pkl',
-                 tokenizer_path='/home/honggen.zhang/CodonBERT-master/benchmarks/CodonBERT/T5_file/tokenizer/',
+    def __init__(self, data_path='./data/data_mfe_ss_510k.pkl',
+                 tokenizer_path='./tokenizer/',
                  mode='train',
                  max_length=128,
                  mask_ratio=0.15,
@@ -67,7 +70,7 @@ class DataLoad(data.Dataset):
                                 )
         
         y = seq_rna.input_ids[0].numpy().copy()
-        mask_rna, label_mask = self.mask_fn(one_rna)
+        mask_rna, label_mask = self.mask_fn(seq_rna)
         x = mask_rna.input_ids[0].numpy()
         attention_mask = mask_rna.attention_mask[0].numpy()
         return x, mfe_rna,ss_category, attention_mask, y,label_mask
@@ -131,12 +134,9 @@ class DataLoad_downstream(data.Dataset):
 
     def __getitem__(self, index):
         no2 = random.choice(list(range(len(self.data))))
-        seq1, label1 = self.data[index]
-        seq2, label2 = self.data[no2]
-        label1 = np.array(label1, dtype=np.float32)
-        label2 = np.array(label2, dtype=np.float32)
-        #print(seq1)
-        seq1 = self.tokenizer(seq1,
+        seq, label = self.data[index]
+        label = np.array(label, dtype=np.float32)
+        seq = self.tokenizer(seq,
                               padding='max_length',
                               max_length=self.max_length,
                               truncation=True,
@@ -144,24 +144,13 @@ class DataLoad_downstream(data.Dataset):
                               return_tensors="pt",
                               )
         
-        #print(self.data[index],seq1)
-        #print(hh)
 
-        seq2 = self.tokenizer(seq2,
-                              padding='max_length',
-                              max_length=self.max_length,
-                              truncation=True,
-                              add_special_tokens=True,
-                              return_tensors="pt",
-                              )
 
-        x1 = seq1.input_ids[0].numpy()
-        mask1 = seq1.attention_mask[0].numpy()
+        x = seq.input_ids[0].numpy()
+        attention_mask = seq.attention_mask[0].numpy()
 
-        x2 = seq2.input_ids[0].numpy()
-        mask2 = seq2.attention_mask[0].numpy()
 
-        return x1, x2, mask1, mask2, label1, label2
+        return x,attention_mask,label
 
     def __len__(self):
         return len(self.data)
