@@ -13,7 +13,7 @@ import wandb
 from model import mRNA2vec, T5_encoder
 from LoadData import DataLoad
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 os.environ['OMP_NUM_THREADS'] = '1'
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -35,9 +35,9 @@ if __name__ == '__main__':
     device = 'cuda'
     if local_rank == 0:
         wandb.init(
-        project="mRNA_data2vec_mfe",
+        project="mRNA_data2vec",
         dir = './',
-        name = 'data2vec_mfe_model',
+        name = 'data2vec_mfe_ss_model',
     
     )
     encoder = T5_encoder(
@@ -47,11 +47,11 @@ if __name__ == '__main__':
     )
     print('loading encoder........')
 
-    #ckpt = torch.load('./model_mfe_mse.pt', map_location='cpu')
+    #ckpt = torch.load('/home/honggen.zhang/data2vec-pytorch/models/model_mfe_mse.pt', map_location='cpu')
     #encoder_state_dict = {k[8:]: v for k, v in ckpt['encoder'].items() if k.startswith('encoder.')}
     #encoder.load_state_dict(ckpt['encoder'], strict=True)
 
-    model = mRNA2vec(encoder=encoder, cfg=cfg)
+    model = mRNA2vec(encoder=encoder)
     
 
     model.to(device)
@@ -120,20 +120,24 @@ if __name__ == '__main__':
                 rna_masked, mfe_value, ss_label, attention_mask, rna_unmasked,label_mask  = batch
                 mask_ss = ss_label > 0
                 ss_label  = ss_label[mask_ss]
-                #a,b = rna_masked.shape
+                a,b = rna_masked.shape
                 mfe_value,ss_label = mfe_value.to(device), ss_label.to(device)
                 mfe_value.add_(100.0).div_(100.0)
                 src, trg, attention_mask,label_mask = rna_masked.to(device), rna_unmasked.to(device), attention_mask.to(device),label_mask.to(device)
                 
                 x, y,logit, ss_pred = model(src,trg,attention_mask,label_mask)
                 loss_lm = criterion(x.float(), y.float()).mean()
-                loss_ss = criterion_cross(ss_pred,ss_)
+                loss_ss = criterion_cross(ss_pred,ss_label)
 
                 targets = torch.tensor(range(a))
-                logit = -1*(logit.view(bs,1)-mfe_.to(device))**2
+                logit = -1*(logit.view(bs,1)-mfe_value.to(device))**2
                 loss_mfe =  criterion_cross(logit, targets.to(device))
+
+                if e<2:
+                    loss = loss_lm + 0*loss_mfe + 0*loss_ss
+                else:
     
-                loss = loss_lm + param_mfe*loss_mfe + param_ss*loss_ss
+                    loss = loss_lm + param_mfe*loss_mfe + param_ss*loss_ss
                 
 
                 scaler.scale(loss).backward()
@@ -172,22 +176,21 @@ if __name__ == '__main__':
             for batch in val_loader:
                 with torch.no_grad():
                     with torch.cuda.amp.autocast():
-                        src,mfe_,ss_, mask, trg,label_mask  = batch
-                        mask_ = ss_ > 0
-                        ss_  = ss_[mask_]
+                        src,mfe_,ss_, attention_mask, trg,label_mask  = batch
+                        mask_ss = ss_ > 0
+                        ss_  = ss_[mask_ss]
                         mfe_ = mfe_.to(device)
                         mfe_.add_(100).div_(100)
                         ss_ = ss_.to(device)
                         a,b = src.shape
-                        src, trg, mask,label_mask = src.to(device), trg.to(device), mask.to(device),label_mask.to(device)
-                        x, y,logit,ss_pred = model(src,trg,mask,label_mask)
+                        src, trg, attention_mask,label_mask = src.to(device), trg.to(device), attention_mask.to(device),label_mask.to(device)
+                        x, y,logit,ss_pred = model(src,trg,attention_mask,label_mask)
                         #x, y = model(src,trg,mask,label_mask)
                         loss_ss = criterion_cross(ss_pred,ss_)
 
                         spearman_corr = spearmanr(logit.squeeze().cpu().numpy(), mfe_.cpu().numpy())[0].item()
                         loss_lm = criterion(x.float(), y.float()).mean()
                         targets = torch.tensor(range(a))
-
 
                         logit = -1*(logit.view(bs,1)-mfe_.to(device))**2
                         loss_b =  criterion_cross(logit, targets.to(device))
@@ -207,7 +210,7 @@ if __name__ == '__main__':
             if np.mean(valid_loss_lm_list)<best_loss:
                 best_loss = np.mean(valid_loss_lm_list)
                 checkpoint = {'encoder': model.module.ema.state_dict(),}
-                torch.save(checkpoint, f'./models/model_d2v_mfe{param_mfe}_ss{param_ss}.pt')
+                torch.save(checkpoint, f'./checkpoint/model_d2v_mfe{param_mfe}_ss{param_ss}_warmup.pt')
         model.train()
 
                 
